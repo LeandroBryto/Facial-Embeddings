@@ -1,0 +1,478 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Memory-Guard AI - Administração</title>
+  <style>
+    body { font-family: Arial, sans-serif; margin: 24px; }
+    .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+    .box { border: 1px solid #ddd; border-radius: 8px; padding: 14px; background: #fafafa; }
+    .box h3 { margin-top: 0; }
+    .nav a { color: #1358d4; margin-right: 10px; text-decoration: none; }
+    .nav a.active { font-weight: 700; text-decoration: underline; }
+    input, button, select { font-size: 14px; padding: 10px; }
+    input, select { width: 260px; max-width: 100%; }
+    button { cursor: pointer; }
+    pre { background: #0b1020; color: #e8eefc; padding: 12px; border-radius: 6px; overflow: auto; }
+    table { width: 100%; border-collapse: collapse; }
+    th, td { border-bottom: 1px solid #e4e4e4; padding: 10px; text-align: left; vertical-align: top; }
+    th { background: #f2f2f2; }
+    .muted { color: #666; font-size: 12px; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 12px; font-size: 12px; border: 1px solid #ddd; background: #fff; }
+    .pill.ok { border-color: #77c08a; color: #1f7a39; }
+    .pill.bad { border-color: #e08d8d; color: #a51f1f; }
+  </style>
+</head>
+<body>
+  <div class="box" style="max-width: 1080px;">
+    <h2 style="margin-top: 0;">Administração</h2>
+    <div class="nav" style="margin-bottom: 12px;">
+      <a href="#dashboard" data-tab="dashboard" class="active">Dashboard</a>
+      <a href="#config" data-tab="config">Config</a>
+      <a href="#devices" data-tab="devices">Dispositivos</a>
+    </div>
+
+    <div style="margin-bottom: 12px;">
+      <div class="muted">Se você configurou memoryguard.admin.key, informe a chave aqui para liberar o admin.</div>
+      <div style="margin-top: 8px;" class="row">
+        <div>
+          <label for="adminKey">Admin Key</label><br>
+          <input id="adminKey" type="password" placeholder="X-Admin-Key (opcional)">
+        </div>
+        <div style="padding-top: 22px;">
+          <button id="btnSaveKey">Salvar</button>
+          <button id="btnRefresh">Atualizar</button>
+        </div>
+        <div style="padding-top: 28px;">
+          <span id="statusPill" class="pill">idle</span>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-dashboard">
+      <div class="row">
+        <div class="box" style="flex: 1; min-width: 320px;">
+          <h3>Resumo</h3>
+          <pre id="dash">{}</pre>
+        </div>
+        <div class="box" style="flex: 1; min-width: 320px;">
+          <h3>Logs recentes</h3>
+          <div class="muted" style="margin-bottom: 8px;">Últimos 50 eventos em TBL_LOG_ATIVIDADE</div>
+          <div style="max-height: 480px; overflow: auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Data</th>
+                  <th>Status</th>
+                  <th>Descrição</th>
+                  <th>IP</th>
+                  <th>Máquina</th>
+                </tr>
+              </thead>
+              <tbody id="logsBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-config" style="display:none;">
+      <div class="row">
+        <div class="box" style="min-width: 320px; flex: 1;">
+          <h3>Chaves</h3>
+          <div class="muted">GET/PUT/DELETE em /admin/config</div>
+          <div style="margin-top: 10px;">
+            <button id="btnLoadConfigs">Carregar</button>
+          </div>
+          <div style="margin-top: 10px; max-height: 480px; overflow:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>Chave</th>
+                  <th>Valor</th>
+                  <th>Descrição</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="cfgBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="box" style="min-width: 320px; flex: 1;">
+          <h3>Editar / Criar</h3>
+          <div style="margin-top: 10px;">
+            <label for="cfgKey">Chave</label><br>
+            <input id="cfgKey" type="text" placeholder="ex: session.timeout.minutes">
+          </div>
+          <div style="margin-top: 10px;">
+            <label for="cfgValue">Valor</label><br>
+            <input id="cfgValue" type="text" placeholder="ex: 10">
+          </div>
+          <div style="margin-top: 10px;">
+            <label for="cfgDesc">Descrição</label><br>
+            <input id="cfgDesc" type="text" placeholder="opcional">
+          </div>
+          <div style="margin-top: 12px;">
+            <button id="btnUpsertCfg">Salvar</button>
+            <button id="btnClearCfg">Limpar</button>
+          </div>
+          <div style="margin-top: 12px;">
+            <pre id="cfgOut">{}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="tab-devices" style="display:none;">
+      <div class="row">
+        <div class="box" style="min-width: 320px; flex: 1;">
+          <h3>Dispositivos</h3>
+          <div class="muted">CRUD básico em /admin/devices</div>
+          <div style="margin-top: 10px;">
+            <button id="btnLoadDevices">Carregar</button>
+          </div>
+          <div style="margin-top: 10px; max-height: 480px; overflow:auto;">
+            <table>
+              <thead>
+                <tr>
+                  <th>ID</th>
+                  <th>Nome</th>
+                  <th>SO</th>
+                  <th>IP</th>
+                  <th>MAC</th>
+                  <th>Ações</th>
+                </tr>
+              </thead>
+              <tbody id="devBody"></tbody>
+            </table>
+          </div>
+        </div>
+        <div class="box" style="min-width: 320px; flex: 1;">
+          <h3>Novo dispositivo</h3>
+          <div style="margin-top: 10px;">
+            <label for="devName">Nome</label><br>
+            <input id="devName" type="text" placeholder="PC-Leandro">
+          </div>
+          <div style="margin-top: 10px;">
+            <label for="devOs">Versão SO</label><br>
+            <input id="devOs" type="text" placeholder="Windows 11">
+          </div>
+          <div style="margin-top: 10px;">
+            <label for="devIp">IP</label><br>
+            <input id="devIp" type="text" placeholder="192.168.0.10">
+          </div>
+          <div style="margin-top: 10px;">
+            <label for="devMac">MAC</label><br>
+            <input id="devMac" type="text" placeholder="AA:BB:CC:DD:EE:FF">
+          </div>
+          <div style="margin-top: 12px;">
+            <button id="btnCreateDevice">Cadastrar</button>
+          </div>
+          <div style="margin-top: 12px;">
+            <pre id="devOut">{}</pre>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="margin-top: 14px;">
+      <a href="/login.html">Login</a>
+      &nbsp;|&nbsp;
+      <a href="/face.html">Face</a>
+      &nbsp;|&nbsp;
+      <a href="/welcome.html">Welcome</a>
+    </div>
+  </div>
+
+  <script>
+    const adminKeyEl = document.getElementById('adminKey');
+    const statusPill = document.getElementById('statusPill');
+
+    const dashEl = document.getElementById('dash');
+    const logsBody = document.getElementById('logsBody');
+
+    const cfgBody = document.getElementById('cfgBody');
+    const cfgKey = document.getElementById('cfgKey');
+    const cfgValue = document.getElementById('cfgValue');
+    const cfgDesc = document.getElementById('cfgDesc');
+    const cfgOut = document.getElementById('cfgOut');
+
+    const devBody = document.getElementById('devBody');
+    const devName = document.getElementById('devName');
+    const devOs = document.getElementById('devOs');
+    const devIp = document.getElementById('devIp');
+    const devMac = document.getElementById('devMac');
+    const devOut = document.getElementById('devOut');
+
+    function setStatus(ok, text) {
+      statusPill.textContent = text || (ok ? 'ok' : 'erro');
+      statusPill.classList.toggle('ok', !!ok);
+      statusPill.classList.toggle('bad', !ok);
+    }
+
+    function getAdminKey() {
+      return String(localStorage.getItem('memoryguard.adminKey') || '').trim();
+    }
+
+    function saveAdminKey(key) {
+      localStorage.setItem('memoryguard.adminKey', key || '');
+    }
+
+    function adminHeaders(extra) {
+      const headers = Object.assign({}, extra || {});
+      const k = getAdminKey();
+      if (k) headers['X-Admin-Key'] = k;
+      return headers;
+    }
+
+    async function getJson(url) {
+      const res = await fetch(url, { method: 'GET', headers: adminHeaders() });
+      const text = await res.text();
+      let json;
+      try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+      return { ok: res.ok, status: res.status, json };
+    }
+
+    async function sendJson(method, url, payload) {
+      const res = await fetch(url, {
+        method,
+        headers: adminHeaders({ 'Content-Type': 'application/json' }),
+        body: payload == null ? null : JSON.stringify(payload)
+      });
+      const text = await res.text();
+      let json;
+      try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+      return { ok: res.ok, status: res.status, json };
+    }
+
+    function esc(s) {
+      return String(s == null ? '' : s)
+        .replaceAll('&', '&amp;')
+        .replaceAll('<', '&lt;')
+        .replaceAll('>', '&gt;')
+        .replaceAll('"', '&quot;')
+        .replaceAll("'", '&#039;');
+    }
+
+    function renderLogs(logs) {
+      logsBody.innerHTML = '';
+      (logs || []).forEach(l => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${esc(l.dataEvento)}</td>
+          <td>${esc(l.status)}</td>
+          <td>${esc(l.descricao)}</td>
+          <td>${esc(l.ip)}</td>
+          <td>${esc(l.nomeMaquina)}</td>
+        `;
+        logsBody.appendChild(tr);
+      });
+    }
+
+    function renderConfigs(list) {
+      cfgBody.innerHTML = '';
+      (list || []).forEach(c => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${esc(c.chave)}</td>
+          <td>${esc(c.valor)}</td>
+          <td>${esc(c.descricao || '')}</td>
+          <td>
+            <button data-action="edit" data-key="${esc(c.chave)}">Editar</button>
+            <button data-action="del" data-key="${esc(c.chave)}">Excluir</button>
+          </td>
+        `;
+        cfgBody.appendChild(tr);
+      });
+    }
+
+    function renderDevices(list) {
+      devBody.innerHTML = '';
+      (list || []).forEach(d => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td>${esc(d.idDispositivo)}</td>
+          <td>${esc(d.nomeDispositivo)}</td>
+          <td>${esc(d.versaoSO || '')}</td>
+          <td>${esc(d.ip || '')}</td>
+          <td>${esc(d.macAddress)}</td>
+          <td><button data-action="del" data-id="${esc(d.idDispositivo)}">Excluir</button></td>
+        `;
+        devBody.appendChild(tr);
+      });
+    }
+
+    async function loadDashboard() {
+      setStatus(true, 'carregando...');
+      const result = await getJson('/admin/dashboard');
+      if (!result.ok) {
+        dashEl.textContent = JSON.stringify(result, null, 2);
+        setStatus(false, 'dashboard ' + result.status);
+        return;
+      }
+      dashEl.textContent = JSON.stringify(result.json, null, 2);
+      renderLogs(result.json.recentLogs || []);
+      setStatus(true, 'dashboard ok');
+    }
+
+    async function loadConfigs() {
+      setStatus(true, 'carregando...');
+      const result = await getJson('/admin/config');
+      cfgOut.textContent = JSON.stringify(result, null, 2);
+      if (!result.ok) {
+        setStatus(false, 'config ' + result.status);
+        return;
+      }
+      renderConfigs(result.json);
+      setStatus(true, 'config ok');
+    }
+
+    async function upsertConfig() {
+      const key = String(cfgKey.value || '').trim();
+      const value = String(cfgValue.value || '').trim();
+      const desc = String(cfgDesc.value || '').trim();
+      if (!key || !value) {
+        cfgOut.textContent = JSON.stringify({ ok: false, error: 'chave e valor são obrigatórios' }, null, 2);
+        return;
+      }
+      setStatus(true, 'salvando...');
+      const result = await sendJson('PUT', '/admin/config/' + encodeURIComponent(key), { valor: value, descricao: desc });
+      cfgOut.textContent = JSON.stringify(result, null, 2);
+      if (!result.ok) {
+        setStatus(false, 'config ' + result.status);
+        return;
+      }
+      cfgKey.value = '';
+      cfgValue.value = '';
+      cfgDesc.value = '';
+      await loadConfigs();
+    }
+
+    async function deleteConfig(key) {
+      setStatus(true, 'excluindo...');
+      const result = await sendJson('DELETE', '/admin/config/' + encodeURIComponent(key), null);
+      cfgOut.textContent = JSON.stringify(result, null, 2);
+      await loadConfigs();
+    }
+
+    async function loadDevices() {
+      setStatus(true, 'carregando...');
+      const result = await getJson('/admin/devices');
+      devOut.textContent = JSON.stringify(result, null, 2);
+      if (!result.ok) {
+        setStatus(false, 'devices ' + result.status);
+        return;
+      }
+      renderDevices(result.json);
+      setStatus(true, 'devices ok');
+    }
+
+    async function createDevice() {
+      const payload = {
+        nomeDispositivo: String(devName.value || '').trim(),
+        versaoSO: String(devOs.value || '').trim(),
+        ip: String(devIp.value || '').trim(),
+        macAddress: String(devMac.value || '').trim()
+      };
+      setStatus(true, 'salvando...');
+      const result = await sendJson('POST', '/admin/devices', payload);
+      devOut.textContent = JSON.stringify(result, null, 2);
+      if (!result.ok) {
+        setStatus(false, 'devices ' + result.status);
+        return;
+      }
+      devName.value = '';
+      devOs.value = '';
+      devIp.value = '';
+      devMac.value = '';
+      await loadDevices();
+    }
+
+    async function deleteDevice(id) {
+      setStatus(true, 'excluindo...');
+      const result = await sendJson('DELETE', '/admin/devices/' + encodeURIComponent(id), null);
+      devOut.textContent = JSON.stringify(result, null, 2);
+      await loadDevices();
+    }
+
+    function showTab(tab) {
+      document.querySelectorAll('.nav a').forEach(a => a.classList.toggle('active', a.dataset.tab === tab));
+      document.getElementById('tab-dashboard').style.display = tab === 'dashboard' ? '' : 'none';
+      document.getElementById('tab-config').style.display = tab === 'config' ? '' : 'none';
+      document.getElementById('tab-devices').style.display = tab === 'devices' ? '' : 'none';
+    }
+
+    function currentTab() {
+      const h = (location.hash || '#dashboard').replace('#', '').trim();
+      return (h === 'config' || h === 'devices') ? h : 'dashboard';
+    }
+
+    document.getElementById('btnSaveKey').addEventListener('click', () => {
+      saveAdminKey(String(adminKeyEl.value || '').trim());
+      adminKeyEl.value = getAdminKey();
+      setStatus(true, getAdminKey() ? 'key salva' : 'sem key');
+    });
+
+    document.getElementById('btnRefresh').addEventListener('click', async () => {
+      const tab = currentTab();
+      showTab(tab);
+      if (tab === 'dashboard') await loadDashboard();
+      if (tab === 'config') await loadConfigs();
+      if (tab === 'devices') await loadDevices();
+    });
+
+    cfgBody.addEventListener('click', async (e) => {
+      const btn = e.target && e.target.dataset ? e.target : null;
+      if (!btn) return;
+      const action = btn.dataset.action;
+      const key = btn.dataset.key;
+      if (!action || !key) return;
+      if (action === 'edit') {
+        const r = await getJson('/admin/config/' + encodeURIComponent(key));
+        cfgOut.textContent = JSON.stringify(r, null, 2);
+        if (r.ok && r.json) {
+          cfgKey.value = r.json.chave || key;
+          cfgValue.value = r.json.valor || '';
+          cfgDesc.value = r.json.descricao || '';
+        }
+      }
+      if (action === 'del') {
+        await deleteConfig(key);
+      }
+    });
+
+    devBody.addEventListener('click', async (e) => {
+      const btn = e.target && e.target.dataset ? e.target : null;
+      if (!btn) return;
+      if (btn.dataset.action === 'del') {
+        await deleteDevice(btn.dataset.id);
+      }
+    });
+
+    document.getElementById('btnLoadConfigs').addEventListener('click', loadConfigs);
+    document.getElementById('btnUpsertCfg').addEventListener('click', upsertConfig);
+    document.getElementById('btnClearCfg').addEventListener('click', () => {
+      cfgKey.value = '';
+      cfgValue.value = '';
+      cfgDesc.value = '';
+      cfgOut.textContent = '{}';
+    });
+
+    document.getElementById('btnLoadDevices').addEventListener('click', loadDevices);
+    document.getElementById('btnCreateDevice').addEventListener('click', createDevice);
+
+    window.addEventListener('hashchange', async () => {
+      const tab = currentTab();
+      showTab(tab);
+      if (tab === 'dashboard') await loadDashboard();
+      if (tab === 'config') await loadConfigs();
+      if (tab === 'devices') await loadDevices();
+    });
+
+    adminKeyEl.value = getAdminKey();
+    showTab(currentTab());
+    loadDashboard().catch(() => setStatus(false, 'erro'));
+  </script>
+</body>
+</html>

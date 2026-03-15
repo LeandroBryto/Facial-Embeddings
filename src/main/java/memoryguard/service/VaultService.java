@@ -2,18 +2,16 @@ package memoryguard.service;
 
 import java.time.LocalDateTime;
 
-import memoryguard.exception.CredentialNotFoundException;
-import memoryguard.security.Encryption;
 import org.springframework.stereotype.Service;
 
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import memoryguard.exception.ResourceNotFoundException;
 import memoryguard.model.CofreSenhas;
 import memoryguard.model.PerfilUsuario;
 import memoryguard.repository.CofreSenhasRepository;
 import memoryguard.repository.PerfilUsuarioRepository;
-
-import java.time.LocalDateTime;
+import memoryguard.security.Encryption;
 
 @Service
 public class VaultService {
@@ -34,7 +32,7 @@ public class VaultService {
 
     public CofreSenhas storeCredential(Long userId, String system, String login, String plainPassword, String url) {
         PerfilUsuario perfil = perfilUsuarioRepository.findById(userId)
-                .orElseThrow(() -> new CredentialNotFoundException("Usuário não encontrado: id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "Usuário não encontrado: id=" + userId));
 
         String encrypted = encryption.encryptToBase64(plainPassword);
         CofreSenhas entity = cofreSenhasRepository
@@ -56,7 +54,7 @@ public class VaultService {
     public DecryptedCredential loadCredential(Long userId, String system) {
         CofreSenhas credencial = cofreSenhasRepository
                 .findByPerfilUsuarioIdUsuarioAndNomeSistema(userId, system)
-                .orElseThrow(() -> new CredentialNotFoundException("Credencial não encontrada para system=" + system));
+                .orElseThrow(() -> new ResourceNotFoundException("CREDENTIAL_NOT_FOUND", "Credencial não encontrada para system=" + system));
 
         String senha = encryption.decryptFromBase64(credencial.getSenhaCriptografada());
         return new DecryptedCredential(credencial.getLogin(), senha, credencial.getUrlAcesso());

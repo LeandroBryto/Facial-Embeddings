@@ -1,15 +1,5 @@
 package memoryguard.service;
 
-import memoryguard.exception.VisionException;
-import memoryguard.model.PerfilUsuario;
-import memoryguard.repository.PerfilUsuarioRepository;
-import memoryguard.vision.CameraService;
-import memoryguard.vision.FaceDetector;
-import memoryguard.vision.OpenCvNativeLoader;
-import org.opencv.imgproc.Imgproc;
-import org.springframework.beans.factory.annotation.Value;
-import org.springframework.stereotype.Service;
-
 import java.nio.ByteBuffer;
 import java.nio.ByteOrder;
 import java.util.Base64;
@@ -25,6 +15,14 @@ import org.opencv.imgcodecs.Imgcodecs;
 import org.opencv.imgproc.Imgproc;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+
+import memoryguard.exception.ResourceNotFoundException;
+import memoryguard.exception.VisionException;
+import memoryguard.model.PerfilUsuario;
+import memoryguard.repository.PerfilUsuarioRepository;
+import memoryguard.vision.CameraService;
+import memoryguard.vision.FaceDetector;
+import memoryguard.vision.OpenCvNativeLoader;
 
 @Service
 public class FaceRecognitionService {
@@ -187,7 +185,7 @@ public class FaceRecognitionService {
 
     public AuthenticationResult authenticateUserFromImageBytes(Long userId, byte[] imageBytes) {
         PerfilUsuario perfil = perfilUsuarioRepository.findById(userId)
-                .orElseThrow(() -> new VisionException("Usuário não encontrado: id=" + userId));
+                .orElseThrow(() -> new ResourceNotFoundException("USER_NOT_FOUND", "Usuário não encontrado: id=" + userId));
 
         if (perfil.getFaceTemplate() == null || perfil.getFaceTemplate().length == 0) {
             return AuthenticationResult.notAuthorized(0.0);
