@@ -1,4 +1,4 @@
-# Memory-Guard AI
+# Memory-Guard 
 
 Aplicação Spring Boot para autenticação facial (webcam/imagem), gestão de credenciais (cofre criptografado) e automação de login via desktop, com auditoria e painel de administração.
 
@@ -21,7 +21,7 @@ Aplicação Spring Boot para autenticação facial (webcam/imagem), gestão de c
   - CRUD de Config do sistema
   - CRUD de Dispositivos
 
-## Stack / dependências
+## Dependências
 
 - Java 17
 - Spring Boot 4 (WebMVC, Security, Data JPA)
