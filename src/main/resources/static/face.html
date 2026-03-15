@@ -1,0 +1,212 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Memory-Guard AI - Face</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; }
+        .row { display: flex; gap: 16px; align-items: flex-start; flex-wrap: wrap; }
+        video, canvas { width: 420px; max-width: 100%; border: 1px solid #ddd; border-radius: 6px; }
+        .panel { min-width: 320px; max-width: 560px; flex: 1; }
+        input, button { font-size: 14px; padding: 10px; }
+        input { width: 180px; }
+        button { cursor: pointer; margin-right: 8px; }
+        pre { background: #0b1020; color: #e8eefc; padding: 12px; border-radius: 6px; overflow: auto; }
+        .status { margin-top: 12px; }
+    </style>
+</head>
+<body>
+<h2>Memory-Guard AI</h2>
+<div class="row">
+    <div>
+        <video id="video" autoplay playsinline></video>
+        <canvas id="canvas"></canvas>
+    </div>
+    <div class="panel">
+        <div>
+            <label for="userId">UserId:</label>
+            <input id="userId" type="number" min="1" value="1">
+        </div>
+        <div style="margin-top: 12px;">
+            <label for="system">System:</label>
+            <input id="system" type="text" value="gmail">
+        </div>
+        <div style="margin-top: 12px;">
+            <label for="login">Login:</label>
+            <input id="login" type="text" value="">
+        </div>
+        <div style="margin-top: 12px;">
+            <label for="password">Senha:</label>
+            <input id="password" type="password" value="">
+        </div>
+        <div style="margin-top: 12px;">
+            <label for="url">URL:</label>
+            <input id="url" type="text" value="">
+        </div>
+        <div style="margin-top: 12px;">
+            <button id="btnSnapshot">Tirar Foto</button>
+            <button id="btnEnroll">Cadastrar Face</button>
+            <button id="btnAuth">Autenticar Face</button>
+            <button id="btnSaveCred">Salvar Credencial</button>
+            <button id="btnAutoLogin">Login Automático</button>
+        </div>
+        <div class="status">
+            <div id="msg"></div>
+            <pre id="out">{}</pre>
+        </div>
+    <div style="margin-top: 10px;">
+      <a href="/admin.html">Admin</a>
+    </div>
+    </div>
+</div>
+
+<script>
+    const video = document.getElementById('video');
+    const canvas = document.getElementById('canvas');
+    const msg = document.getElementById('msg');
+    const out = document.getElementById('out');
+    let lastImageBase64 = null;
+    let lastAuthToken = null;
+    let lastAuthExpiresAt = null;
+
+    async function startCamera() {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'user' }, audio: false });
+      video.srcObject = stream;
+      await new Promise(r => video.onloadedmetadata = r);
+    }
+
+    function captureBase64Jpeg() {
+      const w = video.videoWidth;
+      const h = video.videoHeight;
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(video, 0, 0, w, h);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.9);
+      const base64 = dataUrl.split(',')[1];
+      return base64;
+    }
+
+    async function postJson(url, payload, authToken) {
+      const headers = { 'Content-Type': 'application/json' };
+      if (authToken) {
+        headers['X-Auth-Token'] = authToken;
+      }
+      const res = await fetch(url, {
+        method: 'POST',
+        headers,
+        body: JSON.stringify(payload)
+      });
+      const text = await res.text();
+      let json;
+      try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+      return {
+        ok: res.ok,
+        status: res.status,
+        json,
+        authToken: res.headers.get('X-Auth-Token'),
+        authExpiresAt: res.headers.get('X-Auth-Expires-At')
+      };
+    }
+
+    async function getJson(url) {
+      const res = await fetch(url, { method: 'GET' });
+      const text = await res.text();
+      let json;
+      try { json = text ? JSON.parse(text) : {}; } catch { json = { raw: text }; }
+      return { ok: res.ok, status: res.status, json };
+    }
+
+    function show(result) {
+      out.textContent = JSON.stringify(result, null, 2);
+    }
+
+    document.getElementById('btnSnapshot').addEventListener('click', async () => {
+      msg.textContent = 'Foto capturada.';
+      lastImageBase64 = captureBase64Jpeg();
+      show({ ok: true, snapshot: true, base64Length: lastImageBase64.length });
+    });
+
+    document.getElementById('btnEnroll').addEventListener('click', async () => {
+      msg.textContent = 'Enviando...';
+      const userId = Number(document.getElementById('userId').value);
+      const imageBase64 = lastImageBase64 || captureBase64Jpeg();
+      lastImageBase64 = imageBase64;
+      const result = await postJson('/auth/face/enroll', { userId, imageBase64 });
+      msg.textContent = result.ok ? 'Cadastrado.' : 'Falha.';
+      show(result);
+      if (result.ok && result.json && result.json.userId) {
+        document.getElementById('userId').value = String(result.json.userId);
+      }
+    });
+
+    document.getElementById('btnAuth').addEventListener('click', async () => {
+      msg.textContent = 'Enviando...';
+      const imageBase64 = lastImageBase64 || captureBase64Jpeg();
+      lastImageBase64 = imageBase64;
+      const result = await postJson('/auth/face/image', { imageBase64 });
+      msg.textContent = result.ok ? 'Autorizado.' : 'Negado.';
+      show(result);
+    });
+
+    document.getElementById('btnSaveCred').addEventListener('click', async () => {
+      msg.textContent = 'Salvando credencial...';
+      const userId = Number(document.getElementById('userId').value);
+      const system = String(document.getElementById('system').value || '').trim();
+      const login = String(document.getElementById('login').value || '').trim();
+      const password = String(document.getElementById('password').value || '');
+      const url = String(document.getElementById('url').value || '').trim();
+
+      if (!lastAuthToken) {
+        const imageBase64 = lastImageBase64 || captureBase64Jpeg();
+        lastImageBase64 = imageBase64;
+        const auth = await postJson('/auth/face/verify/' + encodeURIComponent(userId) + '?system=' + encodeURIComponent(system), { imageBase64 });
+        if (!auth.ok) {
+          msg.textContent = 'Negado.';
+          show(auth);
+          return;
+        }
+        lastAuthToken = auth.authToken || null;
+        lastAuthExpiresAt = auth.authExpiresAt || null;
+      }
+      const result = await postJson('/vault/credential', { userId, system, login, password, url }, lastAuthToken);
+      msg.textContent = result.ok ? 'Credencial salva.' : 'Falha ao salvar credencial.';
+      show(result);
+    });
+
+    document.getElementById('btnAutoLogin').addEventListener('click', async () => {
+      msg.textContent = 'Autenticando e iniciando login...';
+      const userId = Number(document.getElementById('userId').value);
+      const system = String(document.getElementById('system').value || '').trim();
+      const imageBase64 = lastImageBase64 || captureBase64Jpeg();
+      lastImageBase64 = imageBase64;
+
+      const auth = await postJson('/auth/face/verify/' + encodeURIComponent(userId) + '?system=' + encodeURIComponent(system), { imageBase64 });
+      if (!auth.ok) {
+        msg.textContent = 'Negado.';
+        show(auth);
+        return;
+      }
+      lastAuthToken = auth.authToken || null;
+      lastAuthExpiresAt = auth.authExpiresAt || null;
+
+      const robot = await getJson('/robot/status');
+      if (robot.ok && robot.json && (robot.json.headless || !robot.json.desktopSupported || !robot.json.robotEnabled)) {
+        msg.textContent = 'Automação indisponível neste ambiente.';
+        show({ auth, robot });
+        return;
+      }
+
+      const login = await postJson('/auth/login/' + encodeURIComponent(system), { userId }, lastAuthToken);
+      msg.textContent = login.ok ? 'Login automático disparado.' : 'Falha no login automático.';
+      show({ auth, login, authToken: lastAuthToken, authExpiresAt: lastAuthExpiresAt });
+    });
+
+    startCamera().catch(e => {
+      msg.textContent = 'Falha ao abrir webcam no navegador.';
+      show({ error: String(e) });
+    });
+</script>
+</body>
+</html>

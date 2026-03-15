@@ -1,0 +1,52 @@
+<!doctype html>
+<html lang="pt-br">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Memory-Guard AI - Bem-vindo</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 24px; }
+        .box { max-width: 720px; border: 1px solid #ddd; border-radius: 8px; padding: 16px; background: #fafafa; }
+        h2 { margin-top: 0; }
+        pre { background: #0b1020; color: #e8eefc; padding: 12px; border-radius: 6px; overflow: auto; }
+        a { color: #1358d4; }
+    </style>
+</head>
+<body>
+<div class="box">
+    <h2>Bem-vindo ao Memory-Guard AI</h2>
+    <div id="who"></div>
+    <div style="margin-top: 10px;">
+        <a href="/login.html">Voltar para Login</a>
+        &nbsp;|&nbsp;
+        <a href="/face.html">Tela de Cadastro</a>
+        &nbsp;|&nbsp;
+        <a href="/admin.html">Admin</a>
+    </div>
+    <div style="margin-top: 14px;">
+        <div><strong>Status do ambiente (Robot)</strong></div>
+        <pre id="robot">{}</pre>
+    </div>
+</div>
+
+<script>
+    const who = document.getElementById('who');
+    const robotEl = document.getElementById('robot');
+
+    const params = new URLSearchParams(location.search);
+    const userId = params.get('userId') || '';
+    const user = params.get('user') || '';
+    const confidence = params.get('confidence') || '';
+
+    who.textContent = userId
+      ? ('Usuário: ' + (user || 'Usuário') + ' (ID ' + userId + ') | Confiança: ' + confidence)
+      : 'Sessão iniciada.';
+
+    fetch('/robot/status')
+      .then(r => r.json())
+      .then(j => robotEl.textContent = JSON.stringify(j, null, 2))
+      .catch(e => robotEl.textContent = JSON.stringify({ error: String(e) }, null, 2));
+</script>
+</body>
+</html>
+
